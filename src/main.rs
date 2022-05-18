@@ -4,8 +4,6 @@ use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Method, StatusCode};
 use anyhow::{Result};
-
-
 use hyper::body::Bytes;
 use futures::TryStreamExt;
 use std::process::exit;
@@ -27,6 +25,7 @@ async fn main() -> Result<()> {
 async fn main_service(request: Request<Body>) -> Result<Response<Body>> {
     
     let mut response = Response::new(Body::empty());
+    let mut login_table = LoginTable::new();//LoginTable::load_or_create("database/file.json").unwrap();
 
     match (request.method(), request.uri().path()) {
         (&Method::GET, "/login") => {
@@ -34,16 +33,31 @@ async fn main_service(request: Request<Body>) -> Result<Response<Body>> {
             *response.body_mut() = Body::from(html_contents);
         },
         (&Method::POST, "/login/try") => {
-            *response.body_mut() = request.into_body();
-            //println!("Request contents: [{:#?}]", request.body())
+            let login_params: &[u8] = &(*hyper::body::to_bytes(request.into_body()).await?);
+            let login_params: &str = std::str::from_utf8(login_params)?;
+            let LoginForm { user_name, password, .. } = parse_login_params(login_params)?;
+            let login_result = login_table.login(user_name.as_str(), password.as_str());
+            if let Err(e) = login_result {
+                *response.status_mut() = StatusCode::BAD_REQUEST;
+                *response.body_mut() = Body::from(format!("Error cause: {}", e));
+                return Ok(response);
+            }
+            *response.body_mut() = Body::from("Login successful!");
         },
         (&Method::GET, "/signup") => {
             let html_contents = include_str!("../pages/signup.html");
             *response.body_mut() = Body::from(html_contents);
         },
         (&Method::POST, "/signup/try") => {
-            *response.body_mut() = request.into_body();
-            //println!("Request contents: [{:#?}]", request.body())
+            let signup_params: &[u8] = &(*hyper::body::to_bytes(request.into_body()).await?);
+            let signup_params: &str = std::str::from_utf8(signup_params)?;
+            let SignupForm { user_name, password, psw_repeat, .. } = parse_signup_params(signup_params)?;
+            let signup_result = login_table.signup(user_name.as_str(), password.as_str(), psw_repeat.as_str());
+            if let Err(e) = signup_result {
+                *response.status_mut() = StatusCode::BAD_REQUEST;
+                *response.body_mut() = Body::from(format!("Error cause: {}", e));
+            }
+            *response.body_mut() = Body::from("Signup successful!");
         },
         (&Method::GET, "/default_avatar.png") => {
             let avatar_data: &[u8] = include_bytes!("../pages/default_avatar.png");

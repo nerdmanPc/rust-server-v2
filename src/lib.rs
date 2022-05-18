@@ -1,7 +1,10 @@
 use std::process::exit;
+use std::fs::File;
 use regex::Regex;
-use anyhow::{Error, Result, bail, anyhow};
+use anyhow::{Result, bail};
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+
 
 pub async fn wait_for_shudown() {
     tokio::signal::ctrl_c().await.expect("Failed to initialize Ctrl+C signal handler");
@@ -10,35 +13,49 @@ pub async fn wait_for_shudown() {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct LoginForm {
+pub struct LoginForm {
     pub user_name: String,
     pub password: String,
     pub remember: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct SignupForm {
+pub struct SignupForm {
     pub user_name: String,
     pub password: String,
     pub psw_repeat: String,
     pub remember: bool,
 }
 
-struct LoginTable {
-
+#[derive(Serialize, Deserialize)]
+pub struct LoginTable {
     table: HashMap<String, String>,
-
 } impl LoginTable {
-
+    
     pub fn new() -> Self {
         let table = HashMap::new();
         Self {
             table,
         }
     }
+    pub fn load_or_create(file_path: &str) -> Result<Self> {
+        let mut open_result = File::open(file_path);
+        if let Err(_) = open_result {
+             open_result = File::create(file_path);
+        }
+        if let Err(e) = open_result {
+            bail!("Error initializing login table: {}", e);
+        }
+        let file_contents = open_result.unwrap();
+        //let login_table = serde::json::from_str()
+        bail!("Unimplemented");
+        //login_table
+    }
+
     fn add_user(&mut self, user_name: &str, password: &str) {
         self.table.insert(user_name.to_owned(), password.to_owned());
     }
+
     pub fn login(&self, user_name: &str, provided_psw: &str) -> Result<()> {
         let registered_psw = self.table.get(user_name);
         if registered_psw.is_none() {
@@ -49,6 +66,7 @@ struct LoginTable {
         }
         Ok(())
     }
+
     pub fn signup(&mut self, user_name: &str, password: &str, repeat_psw: &str) -> Result<()> {
         if self.table.contains_key(user_name) {
             bail!("User {} already exists!", user_name)
@@ -61,7 +79,7 @@ struct LoginTable {
     }
 }
 
-fn parse_login_params(query: &str) -> Result<LoginForm> {
+pub fn parse_login_params(query: &str) -> Result<LoginForm> {
     let login_regex = Regex::new(r"^uname=([[:alpha:]]*)&psw=(\w*)&remember=(on|off)$")?;
     let regex_capture = login_regex.captures(query);
     if regex_capture.is_none() {
@@ -83,7 +101,13 @@ fn parse_login_params(query: &str) -> Result<LoginForm> {
     })
 }
 
-fn parse_signup_params(query: &str) -> Result<SignupForm>{
+pub fn login(params_str: &str) -> Result<()> {
+    let form = parse_login_params(params_str)?;
+    
+    Ok(())
+}
+
+pub fn parse_signup_params(query: &str) -> Result<SignupForm>{
     let signup_regex = Regex::new(r"^uname=([[:alpha:]]*)&psw=(\w*)&psw-repeat=(\w*)&remember=(on|off)$")?;
     let regex_capture = signup_regex.captures(query);
     if regex_capture.is_none() {
@@ -135,19 +159,21 @@ mod tests {
         assert_eq!(result, expected);
     }
 
-    #[test]
-    fn successful_login() {
-        let mut login_db = LoginTable::new();
-        login_db.add_user("ednaldo", "pereira");
-        let result = login_db.login("ednaldo", "pereira");
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn successful_signup() {
-        let mut login_db = LoginTable::new();
-        login_db.signup("ednaldo", "pereira", "pereira").unwrap();
-        let result = login_db.login("ednaldo", "pereira");
-        assert!(result.is_ok());
+    mod login_table {
+        use super::super::*;        
+        #[test]
+        fn successful_login() {
+            let mut login_db = LoginTable::new();
+            login_db.add_user("ednaldo", "pereira");
+            let result = login_db.login("ednaldo", "pereira");
+            assert!(result.is_ok());
+        }
+        #[test]
+        fn successful_signup() {
+            let mut login_db = LoginTable::new();
+            login_db.signup("ednaldo", "pereira", "pereira").unwrap();
+            let result = login_db.login("ednaldo", "pereira");
+            assert!(result.is_ok());
+        }
     }
 }
