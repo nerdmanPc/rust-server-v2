@@ -1,11 +1,14 @@
 use std::process::exit;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufReader;
+use tokio::{
+    fs::File,
+    io::AsyncReadExt,
+    io::AsyncWriteExt,
+};
 use regex::Regex;
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
+use tokio_postgres::{Client, NoTls, Error};
 
 
 pub async fn wait_for_shudown() {
@@ -41,21 +44,33 @@ pub struct LoginTable {
         }
     }
 
-    pub fn load_or_create(file_path: &str) -> Result<Self> {
+    pub async fn load_or_create(file_path: &str) -> Result<Self> {
 
-        let mut open_result = File::open(file_path);
+        let (client, connection) = tokio_postgres::connect("host=localhost user=login_server", NoTls).await?;
+        let wait_for_connection = async move {
+            connection.await.expect("Error setting up database connection!")
+        };
+        tokio::spawn(wait_for_connection);
+        client.execute(include_str!("../database/create_login_table.sql"), &[]).await?;
+
+        let mut open_result = File::open(file_path).await;
         if let Err(_) = open_result {
-             open_result = File::create(file_path);
+            open_result = File::create(file_path).await;
+            if let Err(e) = open_result {
+                bail!("Error initializing login table: {}", e);
+            }
+            let login_table = Self::new();
+            let mut file = open_result.unwrap();
+            let file_contents = serde_json::to_vec(&login_table)?;
+            file.write(&(*file_contents)).await?;
+            return Ok(login_table);
+        } else {
+            let mut file = open_result.unwrap();
+            let mut file_contents = Vec::<u8>::with_capacity(1024);
+            file.read_to_end(&mut file_contents).await?;
+            let login_table: LoginTable = serde_json::from_slice(&(*file_contents))?;
+            return Ok(login_table);
         }
-        if let Err(e) = open_result {
-            bail!("Error initializing login table: {}", e);
-        }
-        let file = open_result.unwrap();
-        let mut buf_reader = BufReader::new(file);
-        let mut login_table: LoginTable = serde_json::from_reader(buf_reader)?;
-        //let login_table = serde::json::from_str()
-        //bail!("Unimplemented");
-        Ok(login_table)
     }
 
     fn add_user(&mut self, user_name: String, password: String) {

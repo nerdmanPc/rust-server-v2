@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS Login (
+    user_name VARCHAR NOT NULL PRIMARY KEY,
+    user_psw SERIAL,
+)

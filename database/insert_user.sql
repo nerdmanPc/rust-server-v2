@@ -1,0 +1,1 @@
+INSERT INTO Login (user_name, user_psw) VALUES ($1, $2)

@@ -6,7 +6,6 @@ use hyper::{Method, StatusCode};
 use anyhow::{Result};
 use hyper::body::Bytes;
 use futures::TryStreamExt;
-use std::process::exit;
 
 mod lib; use lib::*;
 
@@ -25,7 +24,7 @@ async fn main() -> Result<()> {
 async fn main_service(request: Request<Body>) -> Result<Response<Body>> {
     
     let mut response = Response::new(Body::empty());
-    let mut login_table = LoginTable::load_or_create("database/file.json").unwrap();
+    let mut login_table = LoginTable::load_or_create("database/file.json").await.unwrap();
 
     match (request.method(), request.uri().path()) {
         (&Method::GET, "/login") => {
