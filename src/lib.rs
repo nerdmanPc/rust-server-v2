@@ -8,7 +8,7 @@ use regex::Regex;
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-use tokio_postgres::{Client, NoTls, Error};
+use tokio_postgres::{Client, Row, NoTls};
 
 
 pub async fn wait_for_shudown() {
@@ -32,19 +32,13 @@ pub struct SignupForm {
     pub remember: bool,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct LoginTable {
-    table: HashMap<String, String>,
-} impl LoginTable {
-    
-    pub fn new() -> Self {
-        let table = HashMap::new();
-        Self {
-            table,
-        }
-    }
+pub struct LoginTable{
+    client: Client,
+} 
 
-    pub async fn load_or_create(file_path: &str) -> Result<Self> {
+impl LoginTable {
+
+    pub async fn new() -> Result<Self> {
 
         let (client, connection) = tokio_postgres::connect("host=localhost user=login_server", NoTls).await?;
         let wait_for_connection = async move {
@@ -53,51 +47,42 @@ pub struct LoginTable {
         tokio::spawn(wait_for_connection);
         client.execute(include_str!("../database/create_login_table.sql"), &[]).await?;
 
-        let mut open_result = File::open(file_path).await;
-        if let Err(_) = open_result {
-            open_result = File::create(file_path).await;
-            if let Err(e) = open_result {
-                bail!("Error initializing login table: {}", e);
-            }
-            let login_table = Self::new();
-            let mut file = open_result.unwrap();
-            let file_contents = serde_json::to_vec(&login_table)?;
-            file.write(&(*file_contents)).await?;
-            return Ok(login_table);
-        } else {
-            let mut file = open_result.unwrap();
-            let mut file_contents = Vec::<u8>::with_capacity(1024);
-            file.read_to_end(&mut file_contents).await?;
-            let login_table: LoginTable = serde_json::from_slice(&(*file_contents))?;
-            return Ok(login_table);
-        }
+        Ok(Self{client})
     }
 
-    fn add_user(&mut self, user_name: String, password: String) {
-        self.table.insert(user_name, password);
+    async fn insert_user(&self, user_name: &str, password: &str) -> Result<()> {
+        self.client.execute(include_str!("../database/insert_user.sql"),  &[&user_name, &password]).await?;
+        Ok(())
     }
 
-    pub fn login(&self, params: &str) -> Result<()> {
+    async fn query_user(&self, user_name: &str) -> Result<Vec<Row>> {
+        let rows = self.client.query(include_str!("../database/query_user.sql"), &[&user_name]).await?;
+        Ok(rows)
+    }
+
+    pub async fn login(&self, params: &str) -> Result<()> {
         let LoginForm { user_name, password, .. } = parse_login_params(params)?;
-        let registered_psw = self.table.get(user_name.as_str());
-        if registered_psw.is_none() {
+        let user_rows = self.query_user(user_name.as_str()).await?;
+        if user_rows.is_empty() {
             bail!("User {} not found!", user_name);
         }
-        if registered_psw.unwrap() != password.as_str() {
+        let registered_psw: &str = user_rows[0].get(1);
+        if registered_psw != password.as_str() {
             bail!("Wrong password!");
         }
         Ok(())
     }
 
-    pub fn signup(&mut self, params: &str) -> Result<()> {
+    pub async fn signup(&mut self, params: &str) -> Result<()> {
         let SignupForm { user_name, password, psw_repeat, .. } = parse_signup_params(params)?;
-        if self.table.contains_key(user_name.as_str()) {
+        let user_rows = self.query_user(user_name.as_str()).await?;
+        if !user_rows.is_empty() {
             bail!("User {} already exists!", user_name)
         }
         if password != psw_repeat {
             bail!("Passwords do not match")
         }
-        self.add_user(user_name, password);
+        self.insert_user(user_name.as_str(), password.as_str()).await?;
         Ok(())
     }
 }
@@ -174,23 +159,5 @@ mod tests {
             remember: true,
         };
         assert_eq!(result, expected);
-    }
-
-    mod login_table {
-        use super::super::*;        
-        #[test]
-        fn successful_login() {
-            let mut login_db = LoginTable::new();
-            login_db.add_user("ednaldo".to_owned(), "pereira".to_owned());
-            let result = login_db.login("uname=ednaldo&psw=pereira&remember=on");
-            assert!(result.is_ok());
-        }
-        #[test]
-        fn successful_signup() {
-            let mut login_db = LoginTable::new();
-            login_db.signup("uname=ednaldo&psw=pereira&psw-repeat=pereira&remember=on").unwrap();
-            let result = login_db.login("uname=ednaldo&psw=pereira&remember=on");
-            assert!(result.is_ok());
-        }
     }
 }
