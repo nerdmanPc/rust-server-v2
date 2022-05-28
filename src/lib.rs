@@ -40,7 +40,7 @@ impl LoginTable {
 
     pub async fn new() -> Result<Self> {
 
-        let (client, connection) = tokio_postgres::connect("host=localhost user=login_server", NoTls).await?;
+        let (client, connection) = tokio_postgres::connect("host=localhost user=login_server password='le_server' dbname=login", NoTls).await?;
         let wait_for_connection = async move {
             connection.await.expect("Error setting up database connection!")
         };

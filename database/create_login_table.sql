@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS Login (
+CREATE TABLE IF NOT EXISTS login_table (
     user_name VARCHAR NOT NULL PRIMARY KEY,
-    user_psw SERIAL,
-)
+    user_psw VARCHAR NOT NULL
+);
