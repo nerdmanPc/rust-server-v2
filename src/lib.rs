@@ -1,13 +1,8 @@
 use std::process::exit;
-use tokio::{
-    fs::File,
-    io::AsyncReadExt,
-    io::AsyncWriteExt,
-};
 use regex::Regex;
 use anyhow::{Result, bail};
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
+//use serde::{Serialize, Deserialize};
 use tokio_postgres::{Client, Row, NoTls};
 
 
