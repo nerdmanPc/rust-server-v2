@@ -18,8 +18,8 @@ use anyhow::{Result, bail};
     futures::executor::block_on,
 };
 
-pub mod schema;
-pub mod models;
+mod schema;
+mod models;
 
 #[cfg(not(test))]
 pub async fn wait_for_shudown() {
