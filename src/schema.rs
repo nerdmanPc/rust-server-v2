@@ -1,5 +1,4 @@
-#[cfg(not(test))]
-use diesel::table;
+
 
 #[cfg(not(test))]
 table! {
