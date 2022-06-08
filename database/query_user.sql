@@ -1,1 +1,1 @@
-SELECT (user_name, user_psw) FROM login_table WHERE user_name=$1;
+SELECT (user_name, user_psw) FROM login_table WHERE user_name=$1::TEXT;

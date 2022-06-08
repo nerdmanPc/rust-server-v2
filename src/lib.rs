@@ -1,11 +1,27 @@
-use std::process::exit;
 use regex::Regex;
 use anyhow::{Result, bail};
-use std::collections::HashMap;
-//use serde::{Serialize, Deserialize};
-use tokio_postgres::{Client, Row, NoTls};
 
+#[cfg(not(test))] use {
+    std::{
+        process::exit,
+        env,
+    },
+    diesel::{
+        prelude::*,
+        pg::PgConnection,
+    },
+    dotenv::dotenv,
+};
 
+#[cfg(test)] use {
+    std::collections::HashMap,
+    futures::executor::block_on,
+};
+
+pub mod schema;
+pub mod models;
+
+#[cfg(not(test))]
 pub async fn wait_for_shudown() {
     tokio::signal::ctrl_c().await.expect("Failed to initialize Ctrl+C signal handler");
     println!(" Server shutting down...");
@@ -27,31 +43,59 @@ pub struct SignupForm {
     pub remember: bool,
 }
 
-pub struct LoginTable{
-    client: Client,
-} 
+pub struct LoginTable {
+    #[cfg(not(test))]
+    connection: PgConnection,
+    #[cfg(test)]
+    table: HashMap<String, String>,
+}
 
 impl LoginTable {
 
+    #[cfg(not(test))]
     pub async fn new() -> Result<Self> {
 
-        let (client, connection) = tokio_postgres::connect("host=localhost user=login_server password='le_server' dbname=login", NoTls).await?;
-        let wait_for_connection = async move {
-            connection.await.expect("Error setting up database connection!")
-        };
-        tokio::spawn(wait_for_connection);
-        client.execute(include_str!("../database/create_login_table.sql"), &[]).await?;
+        let connection = connect_to_database()?;
 
-        Ok(Self{client})
+        Ok( Self{connection} )
     }
 
+    #[cfg(test)]
+    pub fn new() -> Self {
+        let table = HashMap::new();
+        Self { table }
+    }
+
+    #[cfg(not(test))]
     async fn insert_user(&self, user_name: &str, password: &str) -> Result<()> {
-        self.client.execute(include_str!("../database/insert_user.sql"),  &[&user_name, &password]).await?;
+        //self.client.execute(include_str!("../database/insert_user.sql"),  &[&user_name, &password]).await?;
         Ok(())
     }
 
-    async fn query_user(&self, user_name: &str) -> Result<Vec<Row>> {
-        let rows = self.client.query(include_str!("../database/query_user.sql"), &[&user_name]).await?;
+    #[cfg(test)]
+    async fn insert_user(&mut self, user_name: &str, password: &str) -> Result<()> {
+        self.table.insert(user_name.to_string(), password.to_string());
+        Ok(())
+    }
+
+    #[cfg(not(test))]
+    async fn query_user(&self, usr_name: &str) -> Result<Vec<models::User>> {
+
+        use schema::login_table::dsl::*;
+
+        let results = login_table.filter(user_name.eq(usr_name)).load::<models::User>(&self.connection)?;
+        Ok(results)
+    }
+
+    #[cfg(test)]
+    async fn query_user(&self, user_name: &str) -> Result<Vec<models::User>> {
+        let rows: Vec<models::User> = self.table.iter().filter( |pair| {
+            let (usr, _psw) = pair;
+            usr.as_str() == user_name
+        }).map( |pair| {
+            let (name, psw) = pair;
+            models::User {name: name.clone(), psw: psw.clone()}
+        }).collect();
         Ok(rows)
     }
 
@@ -61,7 +105,11 @@ impl LoginTable {
         if user_rows.is_empty() {
             bail!("User {} not found!", user_name);
         }
-        let registered_psw: &str = user_rows[0].get(1);
+        #[cfg(not(test))]
+        let registered_psw: &str = user_rows[0].psw.as_str();
+        #[cfg(test)]
+        let registered_psw: &str = user_rows[0].psw.as_str();
+
         if registered_psw != password.as_str() {
             bail!("Wrong password!");
         }
@@ -80,6 +128,14 @@ impl LoginTable {
         self.insert_user(user_name.as_str(), password.as_str()).await?;
         Ok(())
     }
+}
+
+#[cfg(not(test))]
+fn connect_to_database() -> Result<PgConnection> {
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL")?;
+    let connection = PgConnection::establish(database_url.as_str())?;
+    Ok(connection)
 }
 
 fn parse_login_params(query: &str) -> Result<LoginForm> {
@@ -131,6 +187,7 @@ fn parse_signup_params(query: &str) -> Result<SignupForm>{
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn correct_login_parse() {
         let correct_query = "uname=ednaldo&psw=pereira&remember=on";
@@ -154,5 +211,15 @@ mod tests {
             remember: true,
         };
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn login_after_signup() {
+        let mut login_table = LoginTable::new();
+        let signup_query = "uname=ednaldo&psw=pereira&psw-repeat=pereira&remember=on";
+        block_on(login_table.signup(signup_query)).unwrap();
+
+        let login_query = "uname=ednaldo&psw=pereira&remember=on";
+        block_on(login_table.login(login_query)).unwrap();
     }
 }

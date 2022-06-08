@@ -1,12 +1,20 @@
-use std::convert::Infallible;
-use std::net::SocketAddr;
-use hyper::{Body, Request, Response, Server};
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Method, StatusCode};
-use anyhow::{Result};
+#[cfg(not(test))] use {
+    std::convert::Infallible,
+    std::net::SocketAddr,
+    hyper::{Body, Request, Response, Server},
+    hyper::service::{make_service_fn, service_fn},
+    hyper::{Method, StatusCode},
+    anyhow::{Result},
+};
 
-mod lib; use lib::*;
+#[macro_use]
+extern crate diesel;
+extern crate dotenv;
 
+mod lib; 
+#[cfg(not(test))] use lib::*;
+
+#[cfg(not(test))]
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -19,6 +27,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(test))]
 async fn main_service(request: Request<Body>) -> Result<Response<Body>> {
     
     let mut response = Response::new(Body::empty());
