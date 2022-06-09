@@ -6,6 +6,7 @@ use {
 #[cfg(not(test))] use {
     diesel::pg::PgConnection,
     diesel::prelude::*,
+    tokio::sync::Mutex,
     dotenv::dotenv,
     std::env,
 };
@@ -16,7 +17,7 @@ use {
 
 pub struct LoginTable {
     #[cfg(not(test))]
-    connection: PgConnection,
+    connection: Mutex<PgConnection>,
     #[cfg(test)]
     table: HashMap<String, String>,
 }
@@ -25,7 +26,9 @@ impl LoginTable {
 
     #[cfg(not(test))]
     pub async fn new() -> Result<Self> {
+
         let connection = connect_to_database()?;
+        let connection = Mutex::new(connection);
         Ok( Self{connection} )
     }
 
@@ -50,8 +53,10 @@ impl LoginTable {
     //The issues on this finction derive form 'schema.rs'
     #[cfg(not(test))]
     pub async fn query_user(&self, name: &str) -> Result<Vec<User>> {
+
         use crate::schema::login_table::dsl::*;
-        let results = login_table.filter(user_name.eq(name)).load::<User>(&self.connection)?;
+        let connection: &PgConnection = &(*self.connection.lock().await);
+        let results = login_table.filter(user_name.eq(name)).load::<User>(connection)?;
         Ok(results)
     }
 

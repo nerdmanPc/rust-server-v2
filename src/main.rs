@@ -1,4 +1,6 @@
 #[cfg(not(test))] use {
+    rust_server_v2::login_service::{wait_for_shudown, login, signup},
+    rust_server_v2::login_table::LoginTable,
     std::convert::Infallible,
     std::net::SocketAddr,
     hyper::{Body, Request, Response, Server},
@@ -11,8 +13,6 @@
 //#[macro_use] extern crate diesel;
 //extern crate dotenv;
 
-mod lib; 
-#[cfg(not(test))] use lib::*;
 
 #[cfg(not(test))]
 #[tokio::main]
@@ -41,7 +41,7 @@ async fn main_service(request: Request<Body>) -> Result<Response<Body>> {
         (&Method::POST, "/login/try") => {
             let login_params: &[u8] = &(*hyper::body::to_bytes(request.into_body()).await?);
             let login_params: &str = std::str::from_utf8(login_params)?;
-            let login_result = login_table.login(login_params).await;
+            let login_result = login(&login_table, login_params).await;
             if let Err(e) = login_result {
                 *response.status_mut() = StatusCode::BAD_REQUEST;
                 *response.body_mut() = Body::from(format!("Error cause: {}", e));
@@ -56,7 +56,7 @@ async fn main_service(request: Request<Body>) -> Result<Response<Body>> {
         (&Method::POST, "/signup/try") => {
             let signup_params: &[u8] = &(*hyper::body::to_bytes(request.into_body()).await?);
             let signup_params: &str = std::str::from_utf8(signup_params)?;
-            let signup_result = login_table.signup(signup_params).await;
+            let signup_result = signup(&mut login_table, signup_params).await;
             if let Err(e) = signup_result {
                 *response.status_mut() = StatusCode::BAD_REQUEST;
                 *response.body_mut() = Body::from(format!("Error cause: {}", e));
