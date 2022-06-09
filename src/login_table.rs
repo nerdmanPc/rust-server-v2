@@ -47,6 +47,7 @@ impl LoginTable {
         Ok(())
     }
 
+    //The issues on this finction derive form 'schema.rs'
     #[cfg(not(test))]
     pub async fn query_user(&self, name: &str) -> Result<Vec<User>> {
         use crate::schema::login_table::dsl::*;

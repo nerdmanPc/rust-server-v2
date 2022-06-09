@@ -7,8 +7,8 @@
     anyhow::{Result},
 };
 
-//#[macro_use]
-//extern crate diesel;
+//Uncommenting the following line doesn't help to solve the problem
+//#[macro_use] extern crate diesel;
 //extern crate dotenv;
 
 mod lib; 
