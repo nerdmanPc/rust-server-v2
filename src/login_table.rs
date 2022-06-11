@@ -1,5 +1,5 @@
 use {
-    crate::models::User,
+    crate::models::{User, NewUser},
     anyhow::Result
 };
 
@@ -39,8 +39,17 @@ impl LoginTable {
     }
 
     #[cfg(not(test))]
-    pub async fn insert_user(&self, user_name: &str, password: &str) -> Result<()> {
-        //self.client.execute(include_str!("../database/insert_user.sql"),  &[&user_name, &password]).await?;
+    pub async fn insert_user<'a>(&self, user_name: &'a str, user_psw: &'a str) -> Result<()> {
+
+        use crate::schema::login_table;
+
+        let new_user = NewUser{ user_name, user_psw };
+        let connection: &PgConnection = &(*self.connection.lock().await);
+
+        diesel::insert_into(login_table::table)
+            .values(&new_user)
+            .get_result::<User>(connection)?;
+
         Ok(())
     }
 
@@ -55,6 +64,7 @@ impl LoginTable {
     pub async fn query_user(&self, name: &str) -> Result<Vec<User>> {
 
         use crate::schema::login_table::dsl::*;
+
         let connection: &PgConnection = &(*self.connection.lock().await);
         let results = login_table.filter(user_name.eq(name)).load::<User>(connection)?;
         Ok(results)
