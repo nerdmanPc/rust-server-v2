@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'login-project'",
+            "name": "Debug unit tests in library 'rust_server_v2'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=login-project"
+                    "--package=rust_server_v2"
                 ],
                 "filter": {
-                    "name": "login-project",
+                    "name": "rust_server_v2",
                     "kind": "lib"
                 }
             },
@@ -26,15 +26,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'login-project'",
+            "name": "Debug executable 'rust_server_v2'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=login-project",
-                    "--package=login-project"
+                    "--bin=rust_server_v2",
+                    "--package=rust_server_v2"
                 ],
                 "filter": {
-                    "name": "login-project",
+                    "name": "rust_server_v2",
                     "kind": "bin"
                 }
             },
@@ -44,16 +44,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'login-project'",
+            "name": "Debug unit tests in executable 'rust_server_v2'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=login-project",
-                    "--package=login-project"
+                    "--bin=rust_server_v2",
+                    "--package=rust_server_v2"
                 ],
                 "filter": {
-                    "name": "login-project",
+                    "name": "rust_server_v2",
                     "kind": "bin"
                 }
             },

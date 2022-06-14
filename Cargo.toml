@@ -10,7 +10,6 @@ edition = "2021"
 diesel = { version = "1.4.4", features = ["postgres"] }
 hyper = { version = "0.14", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
-# tokio-postgres = "0.7"
 dotenv = "0.15.0"
 futures = "0.3"
 anyhow = "1.0"

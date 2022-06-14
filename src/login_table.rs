@@ -1,11 +1,12 @@
 use {
-    crate::models::{User, NewUser},
+    crate::models::User,
     anyhow::Result
 };
 
 #[cfg(not(test))] use {
     diesel::pg::PgConnection,
     diesel::prelude::*,
+    crate::models::NewUser,
     tokio::sync::Mutex,
     dotenv::dotenv,
     std::env,
@@ -32,18 +33,12 @@ impl LoginTable {
         Ok( Self{connection} )
     }
 
-    #[cfg(test)]
-    pub fn new() -> Self {
-        let table = HashMap::new();
-        Self { table }
-    }
-
     #[cfg(not(test))]
     pub async fn insert_user<'a>(&self, user_name: &'a str, user_psw: &'a str) -> Result<()> {
 
         use crate::schema::login_table;
 
-        let new_user = NewUser{ user_name, user_psw };
+        let new_user = NewUser { user_name, user_psw };
         let connection: &PgConnection = &(*self.connection.lock().await);
 
         diesel::insert_into(login_table::table)
@@ -53,13 +48,6 @@ impl LoginTable {
         Ok(())
     }
 
-    #[cfg(test)]
-    pub async fn insert_user(&mut self, user_name: &str, password: &str) -> Result<()> {
-        self.table.insert(user_name.to_string(), password.to_string());
-        Ok(())
-    }
-
-    //The issues on this finction derive form 'schema.rs'
     #[cfg(not(test))]
     pub async fn query_user(&self, name: &str) -> Result<Vec<User>> {
 
@@ -68,6 +56,18 @@ impl LoginTable {
         let connection: &PgConnection = &(*self.connection.lock().await);
         let results = login_table.filter(user_name.eq(name)).load::<User>(connection)?;
         Ok(results)
+    }
+
+    #[cfg(test)]
+    pub fn new() -> Self {
+        let table = HashMap::new();
+        Self { table }
+    }
+
+    #[cfg(test)]
+    pub async fn insert_user(&mut self, user_name: &str, password: &str) -> Result<()> {
+        self.table.insert(user_name.to_string(), password.to_string());
+        Ok(())
     }
 
     #[cfg(test)]
@@ -84,7 +84,7 @@ impl LoginTable {
 }
 
 #[cfg(not(test))]
-pub fn connect_to_database() -> Result<PgConnection> {
+fn connect_to_database() -> Result<PgConnection> {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL")?;
     let connection = PgConnection::establish(database_url.as_str())?;
