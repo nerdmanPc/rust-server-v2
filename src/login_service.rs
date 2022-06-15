@@ -12,6 +12,7 @@ use crate::{
     futures::executor::block_on,
 };
 
+
 #[cfg(not(test))]
 pub async fn wait_for_shudown() {
     tokio::signal::ctrl_c().await.expect("Failed to initialize Ctrl+C signal handler");
@@ -58,9 +59,53 @@ mod tests {
     fn login_after_signup() {
         let mut login_table = LoginTable::new();
         let signup_query = "uname=ednaldo&psw=pereira&psw-repeat=pereira&remember=on";
+
         block_on(signup(&mut login_table, signup_query)).unwrap();
 
         let login_query = "uname=ednaldo&psw=pereira&remember=on";
+
         block_on(login(&login_table, login_query)).unwrap();
+    }
+
+    #[test]
+    fn login_absent_user() {
+        let login_table = LoginTable::new();
+        let login_query = "uname=ednaldo&psw=pereira&remember=on";
+
+        let login_result = block_on(login(&login_table, login_query));
+
+        assert!(login_result.is_err());
+    }
+
+    #[test]
+    fn login_with_wrong_password() {
+        let mut login_table = LoginTable::new();
+        let signup_query = "uname=ednaldo&psw=pereira&psw-repeat=pereira&remember=on";
+        block_on(signup(&mut login_table, signup_query)).unwrap();
+        let login_query = "uname=ednaldo&psw=fleig&remember=on";
+
+        let login_result = block_on(login(&login_table, login_query));
+
+        assert!(login_result.is_err());
+    }
+
+    #[test]
+    fn signup_existing_user() {
+        let mut login_table = LoginTable::new();
+        let signup_query = "uname=ednaldo&psw=pereira&psw-repeat=pereira&remember=on";
+        block_on(signup(&mut login_table, signup_query)).unwrap();
+
+        let second_signup_result = block_on(signup(&mut login_table, signup_query));
+
+        assert!(second_signup_result.is_err());
+    }
+
+    #[test]
+    fn signup_with_different_passwords() {
+        let mut login_table = LoginTable::new();
+        let signup_query = "uname=ednaldo&psw=pereira&psw-repeat=fleig&remember=on";
+        
+        let signup_result = block_on(signup(&mut login_table, signup_query));
+        assert!(signup_result.is_err());
     }
 }
