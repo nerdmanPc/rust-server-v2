@@ -1,4 +1,3 @@
-
 table! {
     login_table (user_name) {
         user_name -> Varchar,

@@ -1,4 +1,4 @@
-use super::schema::login_table;
+use crate::schema::login_table;
 
 #[derive(Queryable)]
 pub struct User {

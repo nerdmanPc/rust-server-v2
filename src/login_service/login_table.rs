@@ -1,12 +1,12 @@
 use {
-    crate::models::User,
+    super::models::User,
     anyhow::Result
 };
 
 #[cfg(not(test))] use {
     diesel::pg::PgConnection,
     diesel::prelude::*,
-    crate::models::NewUser,
+    super::models::NewUser,
     tokio::sync::Mutex,
     dotenv::dotenv,
     std::env,

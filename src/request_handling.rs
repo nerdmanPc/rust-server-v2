@@ -1,6 +1,6 @@
 
 #[cfg(not(test))] use {
-    crate::login_table::LoginTable,
+    crate::login_service::LoginTable,
     crate::login_service::{login, signup},
     hyper::{Body, Request, Response, Method, StatusCode},
     anyhow::Result,
