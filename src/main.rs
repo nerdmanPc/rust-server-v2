@@ -1,5 +1,5 @@
 #[cfg(not(test))] use {
-    rust_server_v2::login_service::{wait_for_shudown},
+    rust_server_v2::login_service::wait_for_shudown,
     rust_server_v2::request_handling::handle_request,
     std::convert::Infallible,
     std::net::SocketAddr,
